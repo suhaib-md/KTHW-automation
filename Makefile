@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -23,13 +23,17 @@ help:
 	@echo "  $(YELLOW)make jumpbox-setup$(NC) - 🖥️  Setup WSL Debian jumpbox environment"
 	@echo "  $(YELLOW)make validate$(NC)      - ✅ Validate prerequisites and configuration"
 	@echo "  $(YELLOW)make clean$(NC)         - 🧹 Clean Terraform files and state"
+	@echo "  $(YELLOW)make setup-compute$(NC) - 🖥️  Setup compute resources (machines.txt, SSH, hostnames)"
+	@echo "  $(YELLOW)make verify-compute$(NC) - 🧪 Verify compute resources setup"
+	@echo "  $(YELLOW)make test-deployment$(NC) - 🧪 Test complete deployment end-to-end"
 	@echo "  $(YELLOW)make cleanup-jumpbox$(NC) - 🗑️  Clean up jumpbox files and binaries"
 	@echo "  $(RED)make full-cleanup$(NC)  - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
 	@echo ""
 	@echo "Usage:"
 	@echo "  1. Edit terraform.tfvars with your AWS settings"
 	@echo "  2. Run: $(GREEN)make deploy$(NC)"
-	@echo "  3. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
+	@echo "  3. Run: $(GREEN)make setup-compute$(NC)"
+	@echo "  4. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -37,6 +41,11 @@ deploy:
 	@echo ""
 	@echo "$(GREEN)🚀 Starting Complete Kubernetes the Hard Way Deployment$(NC)"
 	@echo "=================================================="
+	@echo "This will set up your complete Kubernetes infrastructure:"
+	@echo "  • AWS Infrastructure (VPC, EC2, Security Groups)"  
+	@echo "  • Jumpbox with Kubernetes binaries"
+	@echo "  • Machine database and SSH configuration"
+	@echo "  • Hostname resolution and connectivity"
 	@echo ""
 	
 	@echo "$(YELLOW)📋 Step 1: Validating Prerequisites$(NC)"
@@ -87,10 +96,34 @@ deploy:
 	@./scripts/jumpbox-setup.sh
 	@echo ""
 	
+	@echo "$(YELLOW)🖥️  Step 8: Setting up Compute Resources$(NC)"
+	@chmod +x scripts/setup-compute-resources.sh
+	@./scripts/setup-compute-resources.sh
+	@echo ""
+	
 	@echo "$(GREEN)🎉 DEPLOYMENT COMPLETE!$(NC)"
 	@echo "=================================================="
 	@echo ""
-	@echo "📊 Your infrastructure is ready! Run '$(YELLOW)make status$(NC)' to see connection details."
+	@echo "📊 Your Kubernetes infrastructure is fully configured!"
+	@echo ""
+	@echo "What's been set up:"
+	@echo "  ✅ AWS Infrastructure (VPC, EC2 instances, Security Groups)"
+	@echo "  ✅ Jumpbox environment with Kubernetes binaries"
+	@echo "  ✅ Machine database and SSH configuration"  
+	@echo "  ✅ Hostname resolution and connectivity"
+	@echo ""
+	@echo "You can now connect to your machines:"
+	@echo "  $(YELLOW)ssh root@server$(NC)   - Controller node"
+	@echo "  $(YELLOW)ssh root@node-0$(NC)   - Worker node 0"
+	@echo "  $(YELLOW)ssh root@node-1$(NC)   - Worker node 1"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  🔐 Generate certificates and configuration files"
+	@echo "  ⚙️  Install and configure Kubernetes components"
+	@echo ""
+	@echo "Verification commands:"
+	@echo "  $(YELLOW)make test-deployment$(NC)  - Test complete setup end-to-end"
+	@echo "  $(YELLOW)make verify-compute$(NC)   - Verify compute resources only"
 	@echo ""
 
 # Destroy infrastructure
@@ -228,3 +261,30 @@ full-cleanup:
 		echo "$(YELLOW)❌ Full cleanup cancelled$(NC)"; \
 	fi
 	@echo ""
+
+# Setup compute resources
+setup-compute:
+	@echo ""
+	@echo "$(GREEN)🖥️  Setting up Compute Resources$(NC)"
+	@echo "==================================="
+	@echo ""
+	@chmod +x scripts/setup-compute-resources.sh
+	@./scripts/setup-compute-resources.sh
+
+# Verify compute resources setup
+verify-compute:
+	@echo ""
+	@echo "$(YELLOW)🧪 Verifying Compute Resources$(NC)"
+	@echo "============================"
+	@echo ""
+	@chmod +x scripts/verify-compute-setup.sh
+	@./scripts/verify-compute-setup.sh
+
+# Test complete deployment
+test-deployment:
+	@echo ""
+	@echo "$(BLUE)🧪 Testing Full Deployment$(NC)"
+	@echo "========================="
+	@echo ""
+	@chmod +x scripts/test-full-deployment.sh
+	@./scripts/test-full-deployment.sh

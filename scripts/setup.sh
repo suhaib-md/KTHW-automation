@@ -25,16 +25,6 @@ print_header() {
     echo -e "${BLUE}$1${NC}"
 }
 
-# Banner
-echo -e "${GREEN}"
-cat << 'EOF'
-╦╔═╗╦ ╦╔╗ ╔═╗╦═╗╔╗╔╔═╗╔╦╗╔═╗╔═╗  ╔╦╗╦ ╦╔═╗  ╦ ╦╔═╗╦═╗╔╦╗  ╦ ╦╔═╗╦ ╦
-╠╩╗ ║ ║╠╩╗║╣ ╠╦╝║║║║╣  ║ ║╣ ╚═╗   ║ ╠═╣║╣   ╠═╣╠═╣╠╦╝ ║║  ║║║╠═╣╚╦╝
-╩ ╩ ╚═╝╚═╝╚═╝╩╚═╝╚╝╚═╝ ╩ ╚═╝╚═╝   ╩ ╩ ╩╚═╝  ╩ ╩╩ ╩╩╚══╩╝  ╚╩╝╩ ╩ ╩ 
-Automated Terraform Deployment
-EOF
-echo -e "${NC}"
-
 # Check prerequisites
 print_header "=== Checking Prerequisites ==="
 
