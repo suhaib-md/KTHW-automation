@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -28,6 +28,7 @@ help:
 	@echo "  $(YELLOW)make verify-compute$(NC) - 🧪 Verify compute resources setup"
 	@echo "  $(YELLOW)make generate-certs$(NC) - 🔐 Generate PKI certificates for Kubernetes components"
 	@echo "  $(YELLOW)make generate-configs$(NC) - 📝 Generate Kubernetes configuration files (kubeconfigs)"
+	@echo "  $(YELLOW)make generate-encryption$(NC) - 🔒 Generate data encryption configuration"
 	@echo "  $(YELLOW)make test-deployment$(NC) - 🧪 Test complete deployment end-to-end"
 	@echo "  $(YELLOW)make cleanup-jumpbox$(NC) - 🗑️  Clean up jumpbox files and binaries"
 	@echo "  $(RED)make full-cleanup$(NC)  - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
@@ -38,7 +39,8 @@ help:
 	@echo "  3. Run: $(GREEN)make setup-compute$(NC)"
 	@echo "  4. Run: $(GREEN)make generate-certs$(NC)"
 	@echo "  5. Run: $(GREEN)make generate-configs$(NC)"
-	@echo "  6. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
+	@echo "  6. Run: $(GREEN)make generate-encryption$(NC)"
+	@echo "  7. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -340,3 +342,12 @@ generate-configs:
 	@echo ""
 	@chmod +x scripts/generate-configs.sh
 	@./scripts/generate-configs.sh
+
+# Generate data encryption configuration
+generate-encryption:
+	@echo ""
+	@echo "$(GREEN)🔒 Generating Data Encryption Configuration$(NC)"
+	@echo "=============================================="
+	@echo ""
+	@chmod +x scripts/generate-encryption.sh
+	@./scripts/generate-encryption.sh
