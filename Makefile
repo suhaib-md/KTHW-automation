@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane bootstrap-workers configure-kubectl
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane bootstrap-workers configure-kubectl setup-networking
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -33,6 +33,7 @@ help:
 	@echo "  $(YELLOW)make bootstrap-control-plane$(NC) - ⚙️  Bootstrap Kubernetes control plane"
 	@echo "  $(YELLOW)make bootstrap-workers$(NC)     - 👷 Bootstrap Kubernetes worker nodes"
 	@echo "  $(YELLOW)make configure-kubectl$(NC)     - 🎛️  Configure kubectl for remote access"
+	@echo "  $(YELLOW)make setup-networking$(NC)      - 🌐 Setup pod network routes"
 	@echo "  $(YELLOW)make test-deployment$(NC)       - 🧪 Test complete deployment end-to-end"
 	@echo "  $(YELLOW)make cleanup-jumpbox$(NC)       - 🗑️  Clean up jumpbox files and binaries"
 	@echo "  $(RED)make full-cleanup$(NC)          - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
@@ -48,7 +49,8 @@ help:
 	@echo "  8. Run: $(GREEN)make bootstrap-control-plane$(NC)"
 	@echo "  9. Run: $(GREEN)make bootstrap-workers$(NC)"
 	@echo "  10. Run: $(GREEN)make configure-kubectl$(NC)"
-	@echo "  11. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
+	@echo "  11. Run: $(GREEN)make setup-networking$(NC)"
+	@echo "  12. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -147,7 +149,7 @@ deploy:
 	@echo "  4. $(YELLOW)make bootstrap-control-plane$(NC) - ⚙️  Bootstrap Kubernetes control plane"
 	@echo "  5. $(YELLOW)make bootstrap-workers$(NC)     - 👷 Bootstrap Kubernetes worker nodes"
 	@echo "  6. $(YELLOW)make configure-kubectl$(NC)     - 🎛️  Configure kubectl for remote access"
-	@echo "  7. $(YELLOW)make setup-networking$(NC)      - 🌐 Configure pod networking (CNI)"
+	@echo "  7. $(YELLOW)make setup-networking$(NC)      - 🌐 Configure pod networking routes"
 	@echo ""
 	@echo "$(BLUE)💡 Tutorial Progress Tracking:$(NC)"
 	@echo "  ✅ Lab 01: Prerequisites"
@@ -395,3 +397,12 @@ configure-kubectl:
 	@echo ""
 	@chmod +x scripts/configure-kubectl.sh
 	@./scripts/configure-kubectl.sh
+
+# Setup pod network routes
+setup-networking:
+	@echo ""
+	@echo "$(GREEN)🌐 Setting up Pod Network Routes$(NC)"
+	@echo "===================================="
+	@echo ""
+	@chmod +x scripts/setup-networking.sh
+	@./scripts/setup-networking.sh
