@@ -13,9 +13,10 @@ output "public_subnet_id" {
   value       = aws_subnet.public.id
 }
 
+# For compatibility with existing code, return the same subnet ID for both private subnet slots
 output "private_subnet_ids" {
-  description = "IDs of the private subnets"
-  value       = aws_subnet.private[*].id
+  description = "IDs of the subnets (all using public subnet for simplicity)"
+  value       = [aws_subnet.public.id, aws_subnet.public.id]
 }
 
 output "internet_gateway_id" {

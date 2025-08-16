@@ -21,7 +21,7 @@ data "aws_ami" "debian" {
 
 # Cloud-init script for basic setup
 locals {
-  cloud_init_script = base64encode(file("${path.module}/cloud-init.yml"))
+  cloud_init_script = file("${path.module}/cloud-init.yml")
 }
 
 # Controller Node (server)
@@ -60,7 +60,7 @@ resource "aws_instance" "controller" {
   })
 }
 
-# Worker Nodes
+# Worker Nodes - Both in the same public subnet with different IPs
 resource "aws_instance" "workers" {
   count = 2
 
@@ -68,7 +68,7 @@ resource "aws_instance" "workers" {
   instance_type           = var.instance_type
   key_name                = var.key_name
   vpc_security_group_ids  = [var.worker_sg_id]
-  subnet_id               = var.private_subnet_ids[count.index]
+  subnet_id               = var.public_subnet_id # Use public subnet for both workers
   private_ip              = "10.240.0.${20 + count.index}"
   
   # Storage

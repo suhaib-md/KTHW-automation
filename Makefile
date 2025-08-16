@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -23,11 +23,13 @@ help:
 	@echo "  $(YELLOW)make jumpbox-setup$(NC) - 🖥️  Setup WSL Debian jumpbox environment"
 	@echo "  $(YELLOW)make validate$(NC)      - ✅ Validate prerequisites and configuration"
 	@echo "  $(YELLOW)make clean$(NC)         - 🧹 Clean Terraform files and state"
+	@echo "  $(YELLOW)make cleanup-jumpbox$(NC) - 🗑️  Clean up jumpbox files and binaries"
+	@echo "  $(RED)make full-cleanup$(NC)  - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
 	@echo ""
 	@echo "Usage:"
 	@echo "  1. Edit terraform.tfvars with your AWS settings"
 	@echo "  2. Run: $(GREEN)make deploy$(NC)"
-	@echo "  3. When done: $(RED)make destroy$(NC)"
+	@echo "  3. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -97,7 +99,8 @@ destroy:
 	@echo "$(RED)💥 Destroying Kubernetes Infrastructure$(NC)"
 	@echo "============================================="
 	@echo ""
-	@echo "$(YELLOW)⚠️  WARNING: This will destroy ALL infrastructure!$(NC)"
+	@echo "$(YELLOW)⚠️  WARNING: This will destroy ALL AWS infrastructure!$(NC)"
+	@echo "$(YELLOW)⚠️  Local jumpbox files will NOT be removed.$(NC)"
 	@echo ""
 	@read -p "Are you sure you want to continue? (yes/no): " confirm; \
 	if [ "$$confirm" = "yes" ]; then \
@@ -105,6 +108,9 @@ destroy:
 		terraform destroy -auto-approve; \
 		if [ $$? -eq 0 ]; then \
 			echo "$(GREEN)✅ Infrastructure destroyed successfully$(NC)"; \
+			echo ""; \
+			echo "$(YELLOW)💡 To also clean up jumpbox files, run: make cleanup-jumpbox$(NC)"; \
+			echo "$(YELLOW)💡 For complete cleanup, run: make full-cleanup$(NC)"; \
 		else \
 			echo "$(RED)❌ Failed to destroy infrastructure$(NC)"; \
 		fi; \
@@ -177,5 +183,48 @@ clean:
 		echo "$(GREEN)✅ Terraform files cleaned$(NC)"; \
 	else \
 		echo "$(YELLOW)❌ Cleaning cancelled$(NC)"; \
+	fi
+	@echo ""
+
+# Clean up jumpbox files
+cleanup-jumpbox:
+	@echo ""
+	@echo "$(YELLOW)🗑️  Cleaning Up Jumpbox Files$(NC)"
+	@echo "==============================="
+	@echo ""
+	@./scripts/cleanup-jumpbox.sh
+
+# Full cleanup (destroy + clean + cleanup-jumpbox)
+full-cleanup:
+	@echo ""
+	@echo "$(RED)💥 Full Cleanup - Destroy Everything$(NC)"
+	@echo "======================================"
+	@echo ""
+	@echo "$(YELLOW)⚠️  WARNING: This will:$(NC)"
+	@echo "  - Destroy ALL AWS infrastructure"
+	@echo "  - Remove ALL Terraform state files"
+	@echo "  - Clean up ALL jumpbox files and binaries"
+	@echo "  - Remove local SSH keys"
+	@echo ""
+	@read -p "Are you absolutely sure? (yes/no): " confirm; \
+	if [ "$$confirm" = "yes" ]; then \
+		echo "$(RED)🗑️  Starting full cleanup...$(NC)"; \
+		echo ""; \
+		echo "$(YELLOW)Step 1: Destroying infrastructure...$(NC)"; \
+		terraform destroy -auto-approve || true; \
+		echo ""; \
+		echo "$(YELLOW)Step 2: Cleaning Terraform files...$(NC)"; \
+		rm -rf .terraform/ || true; \
+		rm -f .terraform.lock.hcl || true; \
+		rm -f terraform.tfstate* || true; \
+		rm -f tfplan || true; \
+		echo ""; \
+		echo "$(YELLOW)Step 3: Cleaning jumpbox files...$(NC)"; \
+		./scripts/cleanup-jumpbox.sh || true; \
+		echo ""; \
+		echo "$(GREEN)🎉 Full cleanup complete!$(NC)"; \
+		echo "You can now start fresh with 'make deploy'"; \
+	else \
+		echo "$(YELLOW)❌ Full cleanup cancelled$(NC)"; \
 	fi
 	@echo ""
