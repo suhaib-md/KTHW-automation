@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -25,6 +25,7 @@ help:
 	@echo "  $(YELLOW)make clean$(NC)         - 🧹 Clean Terraform files and state"
 	@echo "  $(YELLOW)make setup-compute$(NC) - 🖥️  Setup compute resources (machines.txt, SSH, hostnames)"
 	@echo "  $(YELLOW)make verify-compute$(NC) - 🧪 Verify compute resources setup"
+	@echo "  $(YELLOW)make generate-certs$(NC) - 🔐 Generate PKI certificates for Kubernetes components"
 	@echo "  $(YELLOW)make test-deployment$(NC) - 🧪 Test complete deployment end-to-end"
 	@echo "  $(YELLOW)make cleanup-jumpbox$(NC) - 🗑️  Clean up jumpbox files and binaries"
 	@echo "  $(RED)make full-cleanup$(NC)  - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
@@ -33,7 +34,8 @@ help:
 	@echo "  1. Edit terraform.tfvars with your AWS settings"
 	@echo "  2. Run: $(GREEN)make deploy$(NC)"
 	@echo "  3. Run: $(GREEN)make setup-compute$(NC)"
-	@echo "  4. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
+	@echo "  4. Run: $(GREEN)make generate-certs$(NC)"
+	@echo "  5. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -100,6 +102,11 @@ deploy:
 	@chmod +x scripts/setup-compute-resources.sh
 	@./scripts/setup-compute-resources.sh
 	@echo ""
+
+	@echo "$(YELLOW)🖥️  Step 9: Generating PKI Certificates$(NC)"
+	@chmod +x scripts/generate-certificates.sh
+	@./scripts/generate-certificates.sh
+	@echo ""
 	
 	@echo "$(GREEN)🎉 DEPLOYMENT COMPLETE!$(NC)"
 	@echo "=================================================="
@@ -111,19 +118,43 @@ deploy:
 	@echo "  ✅ Jumpbox environment with Kubernetes binaries"
 	@echo "  ✅ Machine database and SSH configuration"  
 	@echo "  ✅ Hostname resolution and connectivity"
+	@echo "  ✅ PKI Certificate Authority and TLS certificates"
 	@echo ""
 	@echo "You can now connect to your machines:"
 	@echo "  $(YELLOW)ssh root@server$(NC)   - Controller node"
 	@echo "  $(YELLOW)ssh root@node-0$(NC)   - Worker node 0"
 	@echo "  $(YELLOW)ssh root@node-1$(NC)   - Worker node 1"
 	@echo ""
-	@echo "Next steps:"
-	@echo "  🔐 Generate certificates and configuration files"
-	@echo "  ⚙️  Install and configure Kubernetes components"
+	@echo "$(GREEN)🚀 Ready for Kubernetes the Hard Way tutorial!$(NC)"
 	@echo ""
-	@echo "Verification commands:"
-	@echo "  $(YELLOW)make test-deployment$(NC)  - Test complete setup end-to-end"
-	@echo "  $(YELLOW)make verify-compute$(NC)   - Verify compute resources only"
+	@echo "Next steps (in order):"
+	@echo "  1. $(YELLOW)make generate-configs$(NC)   - 📝 Generate Kubernetes configuration files"
+	@echo "  2. $(YELLOW)make generate-encryption$(NC) - 🔒 Generate data encryption config"
+	@echo "  3. $(YELLOW)make bootstrap-etcd$(NC)     - 🗄️  Bootstrap etcd cluster"
+	@echo "  4. $(YELLOW)make bootstrap-control$(NC)  - ⚙️  Bootstrap Kubernetes control plane"
+	@echo "  5. $(YELLOW)make bootstrap-workers$(NC)  - 👷 Bootstrap Kubernetes worker nodes"
+	@echo "  6. $(YELLOW)make configure-kubectl$(NC)  - 🎛️  Configure kubectl for remote access"
+	@echo "  7. $(YELLOW)make setup-networking$(NC)   - 🌐 Configure pod networking (CNI)"
+	@echo ""
+	@echo "$(BLUE)💡 Tutorial Progress Tracking:$(NC)"
+	@echo "  ✅ Lab 01: Prerequisites"
+	@echo "  ✅ Lab 02: Provisioning Compute Resources" 
+	@echo "  ✅ Lab 03: Provisioning a CA and Generating TLS Certificates"
+	@echo "  ⏳ Lab 04: Generating Kubernetes Configuration Files"
+	@echo "  ⏳ Lab 05: Generating the Data Encryption Config"
+	@echo "  ⏳ Lab 06: Bootstrapping the etcd Cluster"
+	@echo "  ⏳ Lab 07: Bootstrapping the Kubernetes Control Plane"
+	@echo "  ⏳ Lab 08: Bootstrapping the Kubernetes Worker Nodes"
+	@echo "  ⏳ Lab 09: Configuring kubectl for Remote Access"
+	@echo "  ⏳ Lab 10: Provisioning Pod Network Routes"
+	@echo "  ⏳ Lab 11: Deploying the DNS Cluster Add-on"
+	@echo ""
+	@echo "Quick verification commands:"
+	@echo "  $(YELLOW)make status$(NC)              - 📊 Show infrastructure status"
+	@echo "  $(YELLOW)make test-deployment$(NC)     - 🧪 Test complete setup end-to-end"
+	@echo "  $(YELLOW)make verify-compute$(NC)      - 🧪 Verify compute resources only"
+	@echo ""
+	@echo "$(YELLOW)💡 Start with: make generate-configs$(NC)"
 	@echo ""
 
 # Destroy infrastructure
@@ -288,3 +319,12 @@ test-deployment:
 	@echo ""
 	@chmod +x scripts/test-full-deployment.sh
 	@./scripts/test-full-deployment.sh
+
+# Generate PKI certificates
+generate-certs:
+	@echo ""
+	@echo "$(GREEN)🔐 Generating PKI Certificates$(NC)"
+	@echo "================================="
+	@echo ""
+	@chmod +x scripts/generate-certificates.sh
+	@./scripts/generate-certificates.sh
