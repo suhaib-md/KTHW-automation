@@ -292,7 +292,7 @@ echo "  ssh root@server 'etcdctl member list'"
 echo "  ssh root@server 'journalctl -u etcd -f'"
 echo ""
 echo -e "${BLUE}Next step: Bootstrap Kubernetes control plane${NC}"
-echo "Run: make bootstrap-control"
+echo "Run: make bootstrap-control-plane"
 echo ""
 
 cd ..

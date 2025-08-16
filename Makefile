@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -18,21 +18,22 @@ help:
 	@echo "🚀 Kubernetes the Hard Way - AWS Terraform Automation"
 	@echo ""
 	@echo "Available commands:"
-	@echo "  $(GREEN)make deploy$(NC)        - 🚀 Complete deployment (setup + init + plan + apply + jumpbox)"
-	@echo "  $(RED)make destroy$(NC)       - 💥 Destroy all infrastructure"
-	@echo "  $(YELLOW)make status$(NC)        - 📊 Show infrastructure status and connection info"
-	@echo "  $(YELLOW)make jumpbox-setup$(NC) - 🖥️  Setup WSL Debian jumpbox environment"
-	@echo "  $(YELLOW)make validate$(NC)      - ✅ Validate prerequisites and configuration"
-	@echo "  $(YELLOW)make clean$(NC)         - 🧹 Clean Terraform files and state"
-	@echo "  $(YELLOW)make setup-compute$(NC) - 🖥️  Setup compute resources (machines.txt, SSH, hostnames)"
-	@echo "  $(YELLOW)make verify-compute$(NC) - 🧪 Verify compute resources setup"
-	@echo "  $(YELLOW)make generate-certs$(NC) - 🔐 Generate PKI certificates for Kubernetes components"
-	@echo "  $(YELLOW)make generate-configs$(NC) - 📝 Generate Kubernetes configuration files (kubeconfigs)"
-	@echo "  $(YELLOW)make generate-encryption$(NC) - 🔒 Generate data encryption configuration"
-	@echo "  $(YELLOW)make bootstrap-etcd$(NC) - 🗄️  Bootstrap etcd cluster"
-	@echo "  $(YELLOW)make test-deployment$(NC) - 🧪 Test complete deployment end-to-end"
-	@echo "  $(YELLOW)make cleanup-jumpbox$(NC) - 🗑️  Clean up jumpbox files and binaries"
-	@echo "  $(RED)make full-cleanup$(NC)  - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
+	@echo "  $(GREEN)make deploy$(NC)                - 🚀 Complete deployment (setup + init + plan + apply + jumpbox)"
+	@echo "  $(RED)make destroy$(NC)               - 💥 Destroy all infrastructure"
+	@echo "  $(YELLOW)make status$(NC)                - 📊 Show infrastructure status and connection info"
+	@echo "  $(YELLOW)make jumpbox-setup$(NC)         - 🖥️  Setup WSL Debian jumpbox environment"
+	@echo "  $(YELLOW)make validate$(NC)              - ✅ Validate prerequisites and configuration"
+	@echo "  $(YELLOW)make clean$(NC)                 - 🧹 Clean Terraform files and state"
+	@echo "  $(YELLOW)make setup-compute$(NC)         - 🖥️  Setup compute resources (machines.txt, SSH, hostnames)"
+	@echo "  $(YELLOW)make verify-compute$(NC)        - 🧪 Verify compute resources setup"
+	@echo "  $(YELLOW)make generate-certs$(NC)        - 🔐 Generate PKI certificates for Kubernetes components"
+	@echo "  $(YELLOW)make generate-configs$(NC)      - 📝 Generate Kubernetes configuration files (kubeconfigs)"
+	@echo "  $(YELLOW)make generate-encryption$(NC)   - 🔒 Generate data encryption configuration"
+	@echo "  $(YELLOW)make bootstrap-etcd$(NC)        - 🗄️  Bootstrap etcd cluster"
+	@echo "  $(YELLOW)make bootstrap-control-plane$(NC) - ⚙️  Bootstrap Kubernetes control plane"
+	@echo "  $(YELLOW)make test-deployment$(NC)       - 🧪 Test complete deployment end-to-end"
+	@echo "  $(YELLOW)make cleanup-jumpbox$(NC)       - 🗑️  Clean up jumpbox files and binaries"
+	@echo "  $(RED)make full-cleanup$(NC)          - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
 	@echo ""
 	@echo "Usage:"
 	@echo "  1. Edit terraform.tfvars with your AWS settings"
@@ -42,7 +43,8 @@ help:
 	@echo "  5. Run: $(GREEN)make generate-configs$(NC)"
 	@echo "  6. Run: $(GREEN)make generate-encryption$(NC)"
 	@echo "  7. Run: $(GREEN)make bootstrap-etcd$(NC)"
-	@echo "  8. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
+	@echo "  8. Run: $(GREEN)make bootstrap-control-plane$(NC)"
+	@echo "  9. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -135,13 +137,13 @@ deploy:
 	@echo "$(GREEN)🚀 Ready for Kubernetes the Hard Way tutorial!$(NC)"
 	@echo ""
 	@echo "Next steps (in order):"
-	@echo "  1. $(YELLOW)make generate-configs$(NC)   - 📝 Generate Kubernetes configuration files"
-	@echo "  2. $(YELLOW)make generate-encryption$(NC) - 🔒 Generate data encryption config"
-	@echo "  3. $(YELLOW)make bootstrap-etcd$(NC)     - 🗄️  Bootstrap etcd cluster"
-	@echo "  4. $(YELLOW)make bootstrap-control$(NC)  - ⚙️  Bootstrap Kubernetes control plane"
-	@echo "  5. $(YELLOW)make bootstrap-workers$(NC)  - 👷 Bootstrap Kubernetes worker nodes"
-	@echo "  6. $(YELLOW)make configure-kubectl$(NC)  - 🎛️  Configure kubectl for remote access"
-	@echo "  7. $(YELLOW)make setup-networking$(NC)   - 🌐 Configure pod networking (CNI)"
+	@echo "  1. $(YELLOW)make generate-configs$(NC)      - 📝 Generate Kubernetes configuration files"
+	@echo "  2. $(YELLOW)make generate-encryption$(NC)   - 🔒 Generate data encryption config"
+	@echo "  3. $(YELLOW)make bootstrap-etcd$(NC)        - 🗄️  Bootstrap etcd cluster"
+	@echo "  4. $(YELLOW)make bootstrap-control-plane$(NC) - ⚙️  Bootstrap Kubernetes control plane"
+	@echo "  5. $(YELLOW)make bootstrap-workers$(NC)     - 👷 Bootstrap Kubernetes worker nodes"
+	@echo "  6. $(YELLOW)make configure-kubectl$(NC)     - 🎛️  Configure kubectl for remote access"
+	@echo "  7. $(YELLOW)make setup-networking$(NC)      - 🌐 Configure pod networking (CNI)"
 	@echo ""
 	@echo "$(BLUE)💡 Tutorial Progress Tracking:$(NC)"
 	@echo "  ✅ Lab 01: Prerequisites"
@@ -157,9 +159,9 @@ deploy:
 	@echo "  ⏳ Lab 11: Deploying the DNS Cluster Add-on"
 	@echo ""
 	@echo "Quick verification commands:"
-	@echo "  $(YELLOW)make status$(NC)              - 📊 Show infrastructure status"
-	@echo "  $(YELLOW)make test-deployment$(NC)     - 🧪 Test complete setup end-to-end"
-	@echo "  $(YELLOW)make verify-compute$(NC)      - 🧪 Verify compute resources only"
+	@echo "  $(YELLOW)make status$(NC)                  - 📊 Show infrastructure status"
+	@echo "  $(YELLOW)make test-deployment$(NC)         - 🧪 Test complete setup end-to-end"
+	@echo "  $(YELLOW)make verify-compute$(NC)          - 🧪 Verify compute resources only"
 	@echo ""
 	@echo "$(YELLOW)💡 Start with: make generate-configs$(NC)"
 	@echo ""
@@ -216,7 +218,7 @@ status:
 		"$(GREEN)SSH Commands:$(NC)",
 		"  🖥️  Controller: ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .controller_public_ip.value,
 		"  🖥️  Worker 0:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .worker_nodes.value."node-0".public_ip,
-		"  🖥️  Worker 1:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .worker_nodes.value."node-1".private_ip
+		"  🖥️  Worker 1:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .worker_nodes.value."node-1".public_ip
 	'
 	@echo ""
 
@@ -362,3 +364,12 @@ bootstrap-etcd:
 	@echo ""
 	@chmod +x scripts/bootstrap-etcd.sh
 	@./scripts/bootstrap-etcd.sh
+
+# Bootstrap Kubernetes control plane
+bootstrap-control-plane:
+	@echo ""
+	@echo "$(GREEN)⚙️  Bootstrapping Kubernetes Control Plane$(NC)"
+	@echo "=============================================="
+	@echo ""
+	@chmod +x scripts/bootstrap-control-plane.sh
+	@./scripts/bootstrap-control-plane.sh
