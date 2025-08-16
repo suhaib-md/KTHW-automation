@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -29,6 +29,7 @@ help:
 	@echo "  $(YELLOW)make generate-certs$(NC) - 🔐 Generate PKI certificates for Kubernetes components"
 	@echo "  $(YELLOW)make generate-configs$(NC) - 📝 Generate Kubernetes configuration files (kubeconfigs)"
 	@echo "  $(YELLOW)make generate-encryption$(NC) - 🔒 Generate data encryption configuration"
+	@echo "  $(YELLOW)make bootstrap-etcd$(NC) - 🗄️  Bootstrap etcd cluster"
 	@echo "  $(YELLOW)make test-deployment$(NC) - 🧪 Test complete deployment end-to-end"
 	@echo "  $(YELLOW)make cleanup-jumpbox$(NC) - 🗑️  Clean up jumpbox files and binaries"
 	@echo "  $(RED)make full-cleanup$(NC)  - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
@@ -40,7 +41,8 @@ help:
 	@echo "  4. Run: $(GREEN)make generate-certs$(NC)"
 	@echo "  5. Run: $(GREEN)make generate-configs$(NC)"
 	@echo "  6. Run: $(GREEN)make generate-encryption$(NC)"
-	@echo "  7. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
+	@echo "  7. Run: $(GREEN)make bootstrap-etcd$(NC)"
+	@echo "  8. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -214,7 +216,7 @@ status:
 		"$(GREEN)SSH Commands:$(NC)",
 		"  🖥️  Controller: ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .controller_public_ip.value,
 		"  🖥️  Worker 0:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .worker_nodes.value."node-0".public_ip,
-		"  🖥️  Worker 1:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .worker_nodes.value."node-1".public_ip
+		"  🖥️  Worker 1:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .worker_nodes.value."node-1".private_ip
 	'
 	@echo ""
 
@@ -351,3 +353,12 @@ generate-encryption:
 	@echo ""
 	@chmod +x scripts/generate-encryption.sh
 	@./scripts/generate-encryption.sh
+
+# Bootstrap etcd cluster
+bootstrap-etcd:
+	@echo ""
+	@echo "$(GREEN)🗄️  Bootstrapping etcd Cluster$(NC)"
+	@echo "================================="
+	@echo ""
+	@chmod +x scripts/bootstrap-etcd.sh
+	@./scripts/bootstrap-etcd.sh
