@@ -190,6 +190,7 @@ echo ""
 echo -e "${YELLOW}📝 Step 2a: Configuring SSH and hostnames${NC}"
 processed_count=0
 HOSTS_ENTRIES=""
+HOSTS_ENTRIES_JUMPBOX=""
 for i in "${!MACHINE_HOSTS[@]}"; do
     IP="${MACHINE_IPS[i]}"
     PUBLIC_IP="${MACHINE_PUBLIC_IPS[i]}"
@@ -197,11 +198,7 @@ for i in "${!MACHINE_HOSTS[@]}"; do
     HOST="${MACHINE_HOSTS[i]}"
     SUBNET="${MACHINE_SUBNETS[i]}"
     HOSTS_ENTRIES+="$IP $FQDN $HOST\n"
-    if [ -n "$SUBNET" ]; then
-        HOSTS_ENTRIES_JUMPBOX+="$PUBLIC_IP $FQDN $HOST\n"
-    else
-        HOSTS_ENTRIES_JUMPBOX+="$PUBLIC_IP $FQDN $HOST\n"
-    fi
+    HOSTS_ENTRIES_JUMPBOX+="$PUBLIC_IP $FQDN $HOST\n"
 
     processed_count=$((processed_count + 1))
     echo -e "\n[*] Processing machine $processed_count/$total_machines: $HOST (Private: $IP, Public: $PUBLIC_IP)..."
@@ -353,30 +350,89 @@ echo ""
 
 echo -e "${YELLOW}📝 Step 4: Updating /etc/hosts on jumpbox${NC}"
 
-# Handle WSL /etc/hosts
-if [ -f /etc/wsl.conf ] && grep -q "generateHosts.*=.*true" /etc/wsl.conf 2>/dev/null; then
-    echo -e "${YELLOW}⚠️ WSL detected with automatic /etc/hosts generation enabled${NC}"
-    echo "Configuring /etc/wsl.conf to disable hosts generation..."
-    sudo bash -c 'echo -e "[network]\ngenerateHosts = false" >> /etc/wsl.conf'
-    echo "Please run 'wsl --shutdown' from Windows Command Prompt and restart WSL, then rerun this script."
-    exit 1
+# Handle WSL /etc/hosts auto-generation
+echo "Checking WSL configuration..."
+if grep -q microsoft /proc/version 2>/dev/null; then
+    echo "WSL detected, checking /etc/hosts generation settings..."
+    
+    # Check if WSL is auto-generating hosts
+    if [ -f /etc/wsl.conf ]; then
+        if grep -q "generateHosts.*=.*true" /etc/wsl.conf 2>/dev/null; then
+            echo -e "${YELLOW}⚠️ WSL auto-generation of /etc/hosts is enabled${NC}"
+            NEED_WSL_RESTART=true
+        elif grep -q "generateHosts.*=.*false" /etc/wsl.conf 2>/dev/null; then
+            echo -e "${GREEN}✅ WSL auto-generation is already disabled${NC}"
+            NEED_WSL_RESTART=false
+        else
+            echo -e "${YELLOW}⚠️ WSL generateHosts setting not found, will configure it${NC}"
+            NEED_WSL_RESTART=true
+        fi
+    else
+        echo -e "${YELLOW}⚠️ /etc/wsl.conf not found, will create it${NC}"
+        NEED_WSL_RESTART=true
+    fi
+    
+    # Configure WSL if needed
+    if [ "$NEED_WSL_RESTART" = true ]; then
+        echo "Configuring WSL to disable automatic /etc/hosts generation..."
+        
+        if [ ! -f /etc/wsl.conf ]; then
+            sudo tee /etc/wsl.conf > /dev/null << 'EOF'
+[network]
+generateHosts = false
+EOF
+            echo -e "${GREEN}✅ Created /etc/wsl.conf with generateHosts = false${NC}"
+        else
+            # Remove any existing generateHosts lines
+            sudo sed -i '/generateHosts/d' /etc/wsl.conf
+            
+            # Add or update [network] section
+            if grep -q '^\[network\]' /etc/wsl.conf; then
+                sudo sed -i '/^\[network\]/a generateHosts = false' /etc/wsl.conf
+            else
+                echo "" | sudo tee -a /etc/wsl.conf > /dev/null
+                echo "[network]" | sudo tee -a /etc/wsl.conf > /dev/null
+                echo "generateHosts = false" | sudo tee -a /etc/wsl.conf > /dev/null
+            fi
+            echo -e "${GREEN}✅ Updated /etc/wsl.conf with generateHosts = false${NC}"
+        fi
+        
+        echo ""
+        echo -e "${YELLOW}⚠️ WSL CONFIGURATION UPDATED${NC}"
+        echo "To apply the WSL configuration changes:"
+        echo "  1. Open Windows Command Prompt or PowerShell as Administrator"
+        echo "  2. Run: wsl --shutdown"
+        echo "  3. Wait a few seconds, then restart your WSL terminal"
+        echo "  4. Re-run this script: make setup-compute"
+        echo ""
+        echo -e "${BLUE}The script will continue and configure /etc/hosts, but you should restart WSL to prevent future auto-regeneration.${NC}"
+        echo ""
+        read -p "Press Enter to continue with /etc/hosts configuration..."
+    fi
+else
+    echo "Non-WSL environment detected, proceeding normally..."
 fi
 
 # Backup and update /etc/hosts
+echo "Updating local /etc/hosts file..."
 sudo cp "$HOSTS_FILE" "${HOSTS_FILE}.backup.$(date +%Y%m%d_%H%M%S)"
 sudo sed -i '/# Added by Kubernetes the Hard Way setup/,$d' "$HOSTS_FILE"
 sudo sed -i '/# Kubernetes The Hard Way/,$d' "$HOSTS_FILE"
 sudo sed -i '/server\.kubernetes\.local\|node-[0-9]\.kubernetes\.local\|[[:space:]]server[[:space:]]*$\|[[:space:]]node-[0-9][[:space:]]*$/d' "$HOSTS_FILE"
+
+# Add entries with error checking
 echo "# Added by Kubernetes the Hard Way setup - External Access" | sudo tee -a "$HOSTS_FILE" >/dev/null
 echo -e "$HOSTS_ENTRIES_JUMPBOX" | sudo tee -a "$HOSTS_FILE" >/dev/null
 
-# Verify /etc/hosts
+# Verify /etc/hosts was updated
 if grep -q "server.kubernetes.local" "$HOSTS_FILE" && grep -q "node-0.kubernetes.local" "$HOSTS_FILE" && grep -q "node-1.kubernetes.local" "$HOSTS_FILE"; then
     echo -e "${GREEN}✅ Verified $HOSTS_FILE contains all expected entries${NC}"
 else
     echo -e "${RED}❌ $HOSTS_FILE does not contain all expected entries${NC}"
+    echo "Current $HOSTS_FILE content:"
     cat "$HOSTS_FILE"
-    exit 1
+    echo ""
+    echo -e "${YELLOW}⚠️ This might be due to WSL auto-regeneration. Consider restarting WSL as mentioned above.${NC}"
 fi
 echo -e "${GREEN}✅ Updated $HOSTS_FILE with public IPs${NC}"
 echo ""
@@ -390,19 +446,65 @@ for i in "${!MACHINE_HOSTS[@]}"; do
     attempt=1
     while [ $attempt -le $max_attempts ]; do
         echo "    Attempt $attempt/$max_attempts..."
-        if scp -i "$BOOTSTRAP_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 "$HOSTS_REMOTE" "admin@$PUBLIC_IP:~/hosts_remote" 2>/dev/null && \
+        
+        # First, let's see what's currently in the hosts file
+        echo "    Current /etc/hosts content on $HOST:"
+        ssh -i "$BOOTSTRAP_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 "admin@$PUBLIC_IP" \
+            "sudo cat /etc/hosts" 2>/dev/null || echo "    Failed to read current hosts file"
+        
+        # Create a simple script that will update hosts file
+        cat > "/tmp/update_hosts_$HOST.sh" << 'SCRIPT_EOF'
+#!/bin/bash
+# Backup current hosts file
+sudo cp /etc/hosts /etc/hosts.backup.$(date +%Y%m%d_%H%M%S)
+
+# Remove old Kubernetes entries
+sudo sed -i '/# Added by Kubernetes the Hard Way setup/,$/d' /etc/hosts
+sudo sed -i '/# Kubernetes The Hard Way/,$/d' /etc/hosts
+sudo sed -i '/server\.kubernetes\.local\|node-[0-9]\.kubernetes\.local/d' /etc/hosts
+
+# Add new entries
+echo "# Added by Kubernetes the Hard Way setup - Internal Communication" | sudo tee -a /etc/hosts >/dev/null
+SCRIPT_EOF
+
+        # Add the actual host entries to the script
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+            echo "echo '$line' | sudo tee -a /etc/hosts >/dev/null" >> "/tmp/update_hosts_$HOST.sh"
+        done < "$HOSTS_REMOTE"
+
+        # Copy and execute the script
+        if scp -i "$BOOTSTRAP_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 "/tmp/update_hosts_$HOST.sh" "admin@$PUBLIC_IP:~/update_hosts.sh" 2>/dev/null && \
            ssh -i "$BOOTSTRAP_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 "admin@$PUBLIC_IP" \
-               "sudo sed -i '/# Added by Kubernetes the Hard Way setup/,\$d' /etc/hosts && \
-                sudo sed -i '/# Kubernetes The Hard Way/,\$d' /etc/hosts && \
-                sudo sed -i '/server\.kubernetes\.local\|node-[0-9]\.kubernetes\.local\|[[:space:]]server[[:space:]]*\$|[[:space:]]node-[0-9][[:space:]]*\$/d' /etc/hosts && \
-                sudo bash -c 'echo \"# Added by Kubernetes the Hard Way setup - Internal Communication\" >> /etc/hosts' && \
-                sudo bash -c 'cat ~/hosts_remote >> /etc/hosts' && \
-                grep 'server.kubernetes.local' /etc/hosts >/dev/null && \
-                grep 'node-0.kubernetes.local' /etc/hosts >/dev/null && \
-                grep 'node-1.kubernetes.local' /etc/hosts >/dev/null" 2>/dev/null; then
-            echo -e "    ${GREEN}✅ Updated and verified /etc/hosts on $HOST${NC}"
-            break
+               "chmod +x ~/update_hosts.sh && ~/update_hosts.sh" 2>/dev/null; then
+            
+            echo "    Script executed successfully, verifying..."
+            
+            # Show the updated hosts file for debugging
+            echo "    Updated /etc/hosts content on $HOST:"
+            ssh -i "$BOOTSTRAP_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 "admin@$PUBLIC_IP" \
+                "sudo cat /etc/hosts" 2>/dev/null
+            
+            # Verify the hosts file was updated correctly
+            if ssh -i "$BOOTSTRAP_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=30 "admin@$PUBLIC_IP" \
+                "grep -q 'server.kubernetes.local' /etc/hosts && \
+                 grep -q 'node-0.kubernetes.local' /etc/hosts && \
+                 grep -q 'node-1.kubernetes.local' /etc/hosts" 2>/dev/null; then
+                echo -e "    ${GREEN}✅ Updated and verified /etc/hosts on $HOST${NC}"
+                # Cleanup
+                rm -f "/tmp/update_hosts_$HOST.sh"
+                ssh -i "$BOOTSTRAP_KEY" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "admin@$PUBLIC_IP" "rm -f ~/update_hosts.sh" 2>/dev/null || true
+                break
+            else
+                echo "    Verification failed, hosts entries not found after update"
+            fi
+        else
+            echo "    Failed to copy or execute script"
         fi
+        
+        # Cleanup on failure
+        rm -f "/tmp/update_hosts_$HOST.sh"
+        
         if [ $attempt -lt $max_attempts ]; then
             echo "    Failed, retrying in 10 seconds..."
             sleep 10
@@ -411,7 +513,10 @@ for i in "${!MACHINE_HOSTS[@]}"; do
     done
     if [ $attempt -gt $max_attempts ]; then
         echo -e "    ${RED}❌ Failed to update /etc/hosts on $HOST${NC}"
-        exit 1
+        echo -e "    ${YELLOW}You can manually update /etc/hosts on this machine later${NC}"
+        echo -e "    ${YELLOW}Manual command: ssh -i $BOOTSTRAP_KEY admin@$PUBLIC_IP${NC}"
+        # Don't exit, continue with other machines
+        # exit 1
     fi
 done
 
@@ -439,43 +544,83 @@ done
 
 # Verify hostname resolution and SSH access
 echo "Testing hostname-based connectivity..."
+CONNECTIVITY_ISSUES=false
+
 for i in "${!MACHINE_HOSTS[@]}"; do
     HOST="${MACHINE_HOSTS[i]}"
     PUBLIC_IP="${MACHINE_PUBLIC_IPS[i]}"
     echo "  Testing $HOST..."
 
+    # Test hostname resolution
     if timeout 10 getent hosts "$HOST" >/dev/null 2>&1; then
         RESOLVED_IP=$(getent hosts "$HOST" | awk '{print $1}')
         echo -e "    ${GREEN}✅ Resolved $HOST to $RESOLVED_IP${NC}"
+        
+        # Test SSH with hostname
+        echo -n "    SSH as admin@$HOST: "
+        if timeout 10 ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "admin@$HOST" hostname >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ OK${NC}"
+        else
+            echo -e "${RED}❌ FAILED${NC}"
+            CONNECTIVITY_ISSUES=true
+        fi
+
+        echo -n "    SSH as root@$HOST: "
+        if timeout 10 ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "root@$HOST" hostname >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ OK${NC}"
+        else
+            echo -e "${RED}❌ FAILED${NC}"
+            echo "    Fallback: Testing with bootstrap key..."
+            if timeout 10 ssh -i "$BOOTSTRAP_KEY" -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "root@$PUBLIC_IP" hostname >/dev/null 2>&1; then
+                echo -e "    ${YELLOW}⚠️ SSH works with bootstrap key but not jumpbox key${NC}"
+                CONNECTIVITY_ISSUES=true
+            else
+                echo -e "    ${RED}❌ SSH failed with both keys${NC}"
+                CONNECTIVITY_ISSUES=true
+            fi
+        fi
     else
         echo -e "    ${RED}❌ Hostname $HOST cannot be resolved${NC}"
+        echo -e "    ${YELLOW}⚠️ This is likely due to WSL auto-regenerating /etc/hosts${NC}"
         echo "    Current $HOSTS_FILE content:"
-        cat "$HOSTS_FILE"
-        exit 1
-    fi
-
-    echo -n "    SSH as admin@$HOST: "
-    if timeout 10 ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "admin@$HOST" hostname >/dev/null 2>&1; then
-        echo -e "${GREEN}✅ OK${NC}"
-    else
-        echo -e "${RED}❌ FAILED${NC}"
-        exit 1
-    fi
-
-    echo -n "    SSH as root@$HOST: "
-    if timeout 10 ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "root@$HOST" hostname >/dev/null 2>&1; then
-        echo -e "${GREEN}✅ OK${NC}"
-    else
-        echo -e "${RED}❌ FAILED${NC}"
-        echo "    Fallback: Testing with bootstrap key..."
+        tail -10 "$HOSTS_FILE" | sed 's/^/      /'
+        CONNECTIVITY_ISSUES=true
+        
+        # Test direct IP connectivity as fallback
+        echo -n "    Fallback SSH test with IP ($PUBLIC_IP): "
         if timeout 10 ssh -i "$BOOTSTRAP_KEY" -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "root@$PUBLIC_IP" hostname >/dev/null 2>&1; then
-            echo -e "    ${YELLOW}⚠️ SSH works with bootstrap key but not jumpbox key${NC}"
+            echo -e "${GREEN}✅ IP-based SSH works${NC}"
         else
-            echo -e "    ${RED}❌ SSH failed with both keys${NC}"
-            exit 1
+            echo -e "${RED}❌ IP-based SSH failed${NC}"
         fi
     fi
 done
+
+# Handle connectivity issues
+if [ "$CONNECTIVITY_ISSUES" = true ]; then
+    echo ""
+    echo -e "${YELLOW}⚠️ Some connectivity issues were detected${NC}"
+    echo ""
+    echo -e "${BLUE}Troubleshooting options:${NC}"
+    echo ""
+    echo "1. If hostname resolution failed:"
+    echo "   - Restart WSL: wsl --shutdown (from Windows CMD)"
+    echo "   - Check /etc/hosts: cat /etc/hosts"
+    echo "   - Use IP-based connections as backup"
+    echo ""
+    echo "2. If SSH failed:"
+    echo "   - Wait a few minutes for SSH to fully restart on remote machines"
+    echo "   - Use bootstrap key as backup: ssh -i $BOOTSTRAP_KEY root@<PUBLIC_IP>"
+    echo ""
+    echo "3. Backup connection methods:"
+    echo "   ssh -i $BOOTSTRAP_KEY root@$CONTROLLER_PUBLIC_IP   (server)"
+    echo "   ssh -i $BOOTSTRAP_KEY root@$WORKER_0_PUBLIC_IP   (node-0)"
+    echo "   ssh -i $BOOTSTRAP_KEY root@$WORKER_1_PUBLIC_IP   (node-1)"
+    echo ""
+    echo -e "${YELLOW}The setup will continue, but you may need to use IP-based connections.${NC}"
+else
+    echo -e "${GREEN}✅ All connectivity tests passed!${NC}"
+fi
 
 echo ""
 echo -e "${GREEN}🎉 COMPUTE RESOURCES SETUP COMPLETE!${NC}"
@@ -512,16 +657,41 @@ echo ""
 echo -e "${YELLOW}📊 Final Verification Summary:${NC}"
 for i in "${!MACHINE_HOSTS[@]}"; do
     HOST="${MACHINE_HOSTS[i]}"
+    PUBLIC_IP="${MACHINE_PUBLIC_IPS[i]}"
     if timeout 10 ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=10 "root@$HOST" "echo 'Connection test successful'" >/dev/null 2>&1; then
         echo -e "  ${GREEN}✅ $HOST - Ready for Kubernetes installation${NC}"
     else
-        echo -e "  ${RED}❌ $HOST - Use IP-based connection as fallback${NC}"
-        exit 1
+        echo -e "  ${YELLOW}⚠️ $HOST - Hostname-based SSH failed, but IP-based should work${NC}"
+        # Don't exit, just warn
     fi
 done
 
 echo ""
-echo -e "${GREEN}🚀 All systems ready! You can proceed with the Kubernetes the Hard Way tutorial.${NC}"
+if [ "$CONNECTIVITY_ISSUES" = true ]; then
+    echo -e "${YELLOW}🚀 Setup completed with some connectivity issues!${NC}"
+    echo ""
+    echo -e "${BLUE}Your infrastructure is ready, but you may need to use IP-based connections:${NC}"
+    echo ""
+    echo -e "${YELLOW}Recommended connection methods:${NC}"
+    echo "  ssh -i $BOOTSTRAP_KEY root@$CONTROLLER_PUBLIC_IP   (server)"
+    echo "  ssh -i $BOOTSTRAP_KEY root@$WORKER_0_PUBLIC_IP   (node-0)"
+    echo "  ssh -i $BOOTSTRAP_KEY root@$WORKER_1_PUBLIC_IP   (node-1)"
+    echo ""
+    echo -e "${YELLOW}If you restart WSL (wsl --shutdown), hostname-based connections may work:${NC}"
+    echo "  ssh root@server"
+    echo "  ssh root@node-0"
+    echo "  ssh root@node-1"
+else
+    echo -e "${GREEN}🚀 All systems ready! You can proceed with the Kubernetes the Hard Way tutorial.${NC}"
+    echo ""
+    echo -e "${GREEN}Connection methods:${NC}"
+    echo "  ssh root@server   (controller)"
+    echo "  ssh root@node-0   (worker 0)"
+    echo "  ssh root@node-1   (worker 1)"
+fi
+
+echo ""
+echo -e "${BLUE}Next step: Generate certificates and configuration files${NC}"
 echo ""
 
 cd ..
