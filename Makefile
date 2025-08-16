@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane bootstrap-workers
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -31,6 +31,7 @@ help:
 	@echo "  $(YELLOW)make generate-encryption$(NC)   - 🔒 Generate data encryption configuration"
 	@echo "  $(YELLOW)make bootstrap-etcd$(NC)        - 🗄️  Bootstrap etcd cluster"
 	@echo "  $(YELLOW)make bootstrap-control-plane$(NC) - ⚙️  Bootstrap Kubernetes control plane"
+	@echo "  $(YELLOW)make bootstrap-workers$(NC)     - 👷 Bootstrap Kubernetes worker nodes"
 	@echo "  $(YELLOW)make test-deployment$(NC)       - 🧪 Test complete deployment end-to-end"
 	@echo "  $(YELLOW)make cleanup-jumpbox$(NC)       - 🗑️  Clean up jumpbox files and binaries"
 	@echo "  $(RED)make full-cleanup$(NC)          - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
@@ -44,7 +45,8 @@ help:
 	@echo "  6. Run: $(GREEN)make generate-encryption$(NC)"
 	@echo "  7. Run: $(GREEN)make bootstrap-etcd$(NC)"
 	@echo "  8. Run: $(GREEN)make bootstrap-control-plane$(NC)"
-	@echo "  9. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
+	@echo "  9. Run: $(GREEN)make bootstrap-workers$(NC)"
+	@echo "  10. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -373,3 +375,12 @@ bootstrap-control-plane:
 	@echo ""
 	@chmod +x scripts/bootstrap-control-plane.sh
 	@./scripts/bootstrap-control-plane.sh
+
+# Bootstrap Kubernetes worker nodes
+bootstrap-workers:
+	@echo ""
+	@echo "$(GREEN)👷 Bootstrapping Kubernetes Worker Nodes$(NC)"
+	@echo "============================================"
+	@echo ""
+	@chmod +x scripts/bootstrap-workers.sh
+	@./scripts/bootstrap-workers.sh
