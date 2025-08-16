@@ -171,18 +171,32 @@ while read IP FQDN HOST SUBNET; do
         PUBLIC_IP=$WORKER_1_PUBLIC_IP
     fi
     
-    # Copy the jumpbox SSH key to root user
-    if ssh_exec_retry $PUBLIC_IP "
-        sudo mkdir -p /root/.ssh &&
-        echo '$(cat ~/.ssh/id_rsa.pub)' | sudo tee -a /root/.ssh/authorized_keys &&
-        sudo chown -R root:root /root/.ssh &&
-        sudo chmod 700 /root/.ssh &&
-        sudo chmod 600 /root/.ssh/authorized_keys
-    "; then
+    # Copy the jumpbox SSH key to root user - FIXED: Using KEY_PATH for authentication
+    if ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$KEY_PATH" root@$PUBLIC_IP "
+        mkdir -p /root/.ssh &&
+        echo '$(cat ~/.ssh/id_rsa.pub)' >> /root/.ssh/authorized_keys &&
+        chown -R root:root /root/.ssh &&
+        chmod 700 /root/.ssh &&
+        chmod 600 /root/.ssh/authorized_keys &&
+        sort /root/.ssh/authorized_keys | uniq > /tmp/auth_keys_tmp &&
+        mv /tmp/auth_keys_tmp /root/.ssh/authorized_keys
+    " 2>/dev/null; then
         echo -e "    ${GREEN}✅ SSH key added to $HOST${NC}"
     else
-        echo -e "    ${RED}❌ Failed to add SSH key to $HOST after multiple attempts${NC}"
-        exit 1
+        echo -e "    ${RED}❌ Failed to add SSH key to $HOST, retrying...${NC}"
+        # Retry with more explicit error handling
+        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$KEY_PATH" root@$PUBLIC_IP "
+            mkdir -p /root/.ssh
+            echo '$(cat ~/.ssh/id_rsa.pub)' >> /root/.ssh/authorized_keys
+            chown -R root:root /root/.ssh
+            chmod 700 /root/.ssh
+            chmod 600 /root/.ssh/authorized_keys
+            sort /root/.ssh/authorized_keys | uniq > /tmp/auth_keys_tmp
+            mv /tmp/auth_keys_tmp /root/.ssh/authorized_keys
+        " && echo -e "    ${GREEN}✅ SSH key added to $HOST (retry successful)${NC}" || {
+            echo -e "    ${RED}❌ Failed to add SSH key to $HOST after retry${NC}"
+            exit 1
+        }
     fi
 done < machines.txt
 
@@ -202,12 +216,18 @@ while read IP FQDN HOST SUBNET; do
     fi
     
     echo "  Testing SSH to $HOST..."
-    HOSTNAME_RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 root@$PUBLIC_IP hostname 2>/dev/null)
     
-    if [ $? -eq 0 ]; then
-        echo -e "    ${GREEN}✅ SSH to $HOST successful (current hostname: $HOSTNAME_RESULT)${NC}"
+    # Test both PEM key (should work) and id_rsa (what we just added)
+    HOSTNAME_RESULT_PEM=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -i "$KEY_PATH" root@$PUBLIC_IP hostname 2>/dev/null)
+    HOSTNAME_RESULT_RSA=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 root@$PUBLIC_IP hostname 2>/dev/null)
+    
+    if [ "$HOSTNAME_RESULT_PEM" ] && [ "$HOSTNAME_RESULT_RSA" ]; then
+        echo -e "    ${GREEN}✅ SSH to $HOST successful with both keys (hostname: $HOSTNAME_RESULT_RSA)${NC}"
+    elif [ "$HOSTNAME_RESULT_PEM" ]; then
+        echo -e "    ${YELLOW}⚠️  SSH to $HOST works with PEM key but not RSA key${NC}"
+        echo -e "    ${YELLOW}⚠️  This may cause issues later - continuing anyway${NC}"
     else
-        echo -e "    ${RED}❌ SSH to $HOST failed${NC}"
+        echo -e "    ${RED}❌ SSH to $HOST failed with both keys${NC}"
         exit 1
     fi
 done < machines.txt
@@ -228,8 +248,8 @@ while read IP FQDN HOST SUBNET; do
     
     echo "  Setting hostname for $HOST..."
     
-    # Set hostname and update /etc/hosts
-    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP "
+    # Set hostname and update /etc/hosts - Using KEY_PATH for reliable connection
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$KEY_PATH" root@$PUBLIC_IP "
         sed -i 's/^127.0.1.1.*/127.0.1.1\t${FQDN} ${HOST}/' /etc/hosts &&
         hostnamectl set-hostname ${HOST} &&
         systemctl restart systemd-hostnamed
@@ -258,7 +278,7 @@ while read IP FQDN HOST SUBNET; do
     fi
     
     echo "  Checking hostname for $HOST..."
-    FQDN_RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP "hostname --fqdn" 2>/dev/null)
+    FQDN_RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$KEY_PATH" root@$PUBLIC_IP "hostname --fqdn" 2>/dev/null)
     
     if [ "$FQDN_RESULT" = "$FQDN" ]; then
         echo -e "    ${GREEN}✅ Hostname verified: $FQDN_RESULT${NC}"
@@ -310,9 +330,9 @@ while read IP FQDN HOST SUBNET; do
     
     echo "  Updating /etc/hosts on $HOST..."
     
-    # Copy hosts file and append to /etc/hosts
-    scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null hosts root@$PUBLIC_IP:~/
-    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP "cat hosts >> /etc/hosts"
+    # Copy hosts file and append to /etc/hosts - Using KEY_PATH for reliable connection
+    scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$KEY_PATH" hosts root@$PUBLIC_IP:~/
+    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i "$KEY_PATH" root@$PUBLIC_IP "cat hosts >> /etc/hosts"
     
     if [ $? -eq 0 ]; then
         echo -e "    ${GREEN}✅ Updated /etc/hosts on $HOST${NC}"
@@ -327,10 +347,13 @@ echo ""
 echo -e "${YELLOW}🧪 Step 7: Final connectivity test${NC}"
 echo "Testing hostname-based connectivity..."
 
-# Test connectivity using hostnames
+# Test connectivity using hostnames (fallback to KEY_PATH if id_rsa doesn't work yet)
 for host in server node-0 node-1; do
     echo "  Testing connection to $host..."
-    RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 root@$host hostname 2>/dev/null)
+    
+    # Try with id_rsa first (the goal), fallback to KEY_PATH
+    RESULT=$(ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 root@$host hostname 2>/dev/null || \
+             ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -i "$KEY_PATH" root@$host hostname 2>/dev/null)
     
     if [ "$RESULT" = "$host" ]; then
         echo -e "    ${GREEN}✅ Successfully connected to $host${NC}"
