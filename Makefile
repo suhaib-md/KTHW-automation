@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -9,6 +9,7 @@ AWS_REGION ?= us-west-2
 GREEN := \033[0;32m
 YELLOW := \033[1;33m
 RED := \033[0;31m
+BLUE := \033[0;34m
 NC := \033[0m # No Color
 
 # Default target
@@ -26,6 +27,7 @@ help:
 	@echo "  $(YELLOW)make setup-compute$(NC) - 🖥️  Setup compute resources (machines.txt, SSH, hostnames)"
 	@echo "  $(YELLOW)make verify-compute$(NC) - 🧪 Verify compute resources setup"
 	@echo "  $(YELLOW)make generate-certs$(NC) - 🔐 Generate PKI certificates for Kubernetes components"
+	@echo "  $(YELLOW)make generate-configs$(NC) - 📝 Generate Kubernetes configuration files (kubeconfigs)"
 	@echo "  $(YELLOW)make test-deployment$(NC) - 🧪 Test complete deployment end-to-end"
 	@echo "  $(YELLOW)make cleanup-jumpbox$(NC) - 🗑️  Clean up jumpbox files and binaries"
 	@echo "  $(RED)make full-cleanup$(NC)  - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
@@ -35,7 +37,8 @@ help:
 	@echo "  2. Run: $(GREEN)make deploy$(NC)"
 	@echo "  3. Run: $(GREEN)make setup-compute$(NC)"
 	@echo "  4. Run: $(GREEN)make generate-certs$(NC)"
-	@echo "  5. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
+	@echo "  5. Run: $(GREEN)make generate-configs$(NC)"
+	@echo "  6. When done: $(RED)make destroy$(NC) or $(RED)make full-cleanup$(NC)"
 	@echo ""
 
 # Complete deployment pipeline
@@ -167,10 +170,10 @@ destroy:
 	@echo "$(YELLOW)⚠️  Local jumpbox files will NOT be removed.$(NC)"
 	@echo ""
 	@read -p "Are you sure you want to continue? (yes/no): " confirm; \
-	if [ "$$confirm" = "yes" ]; then \
+	if [ "$confirm" = "yes" ]; then \
 		echo "$(RED)🗑️  Destroying infrastructure...$(NC)"; \
 		terraform destroy -auto-approve; \
-		if [ $$? -eq 0 ]; then \
+		if [ $? -eq 0 ]; then \
 			echo "$(GREEN)✅ Infrastructure destroyed successfully$(NC)"; \
 			echo ""; \
 			echo "$(YELLOW)💡 To also clean up jumpbox files, run: make cleanup-jumpbox$(NC)"; \
@@ -238,7 +241,7 @@ clean:
 	@echo "$(YELLOW)⚠️  This will remove all Terraform state and plans!$(NC)"
 	@echo ""
 	@read -p "Are you sure you want to continue? (yes/no): " confirm; \
-	if [ "$$confirm" = "yes" ]; then \
+	if [ "$confirm" = "yes" ]; then \
 		echo "$(YELLOW)🗑️  Removing Terraform files...$(NC)"; \
 		rm -rf .terraform/; \
 		rm -f .terraform.lock.hcl; \
@@ -271,7 +274,7 @@ full-cleanup:
 	@echo "  - Remove local SSH keys"
 	@echo ""
 	@read -p "Are you absolutely sure? (yes/no): " confirm; \
-	if [ "$$confirm" = "yes" ]; then \
+	if [ "$confirm" = "yes" ]; then \
 		echo "$(RED)🗑️  Starting full cleanup...$(NC)"; \
 		echo ""; \
 		echo "$(YELLOW)Step 1: Destroying infrastructure...$(NC)"; \
@@ -328,3 +331,12 @@ generate-certs:
 	@echo ""
 	@chmod +x scripts/generate-certificates.sh
 	@./scripts/generate-certificates.sh
+
+# Generate Kubernetes configuration files
+generate-configs:
+	@echo ""
+	@echo "$(GREEN)📝 Generating Kubernetes Configuration Files$(NC)"
+	@echo "=============================================="
+	@echo ""
+	@chmod +x scripts/generate-configs.sh
+	@./scripts/generate-configs.sh
