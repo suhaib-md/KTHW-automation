@@ -1,0 +1,15 @@
+# Copy this file to terraform.tfvars and update the values
+
+aws_region   = "us-west-2"
+project_name = "kubernetes-hard-way"
+vpc_cidr     = "10.240.0.0/24"
+instance_type = "t3.medium"
+
+key_name = "kubernetes-hard-way"
+
+common_tags = {
+  Project     = "kubernetes-hard-way"
+  Environment = "learning"
+  ManagedBy   = "terraform"
+  Owner       = "your-name"
+}
