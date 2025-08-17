@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane bootstrap-workers configure-kubectl setup-networking
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane bootstrap-workers configure-kubectl setup-networking smoke-test
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -139,6 +139,9 @@ deploy:
 	@/bin/echo -e "$(YELLOW)🌐 Step 16: Setting up Pod Network Routes$(NC)"
 	@chmod +x scripts/setup-networking.sh
 	@./scripts/setup-networking.sh
+	@/bin/echo -e "$(YELLOW)🧪 Step 17:Running Kubernetes Cluster Smoke Tests$(NC)"
+	@chmod +x scripts/smoke-test.sh
+	@./scripts/smoke-test.sh	
 	@/bin/echo ""
 	@/bin/echo -e "$(GREEN)🎉 COMPLETE DEPLOYMENT SUCCESSFUL!$(NC)"
 	@/bin/echo "=================================================="
@@ -437,3 +440,12 @@ setup-networking:
 	@/bin/echo ""
 	@chmod +x scripts/setup-networking.sh
 	@./scripts/setup-networking.sh
+
+# Smoke test
+smoke-test:
+	@/bin/echo ""
+	@/bin/echo -e "$(GREEN)🧪 Running Kubernetes Cluster Smoke Tests$(NC)"
+	@/bin/echo "============================================="
+	@/bin/echo ""
+	@chmod +x scripts/smoke-test.sh
+	@./scripts/smoke-test.sh
