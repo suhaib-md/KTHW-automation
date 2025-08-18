@@ -1,4 +1,4 @@
-.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute test-deployment generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane bootstrap-workers configure-kubectl setup-networking smoke-test
+.PHONY: help deploy destroy status clean jumpbox-setup validate cleanup-jumpbox full-cleanup setup-compute verify-compute generate-certs generate-configs generate-encryption bootstrap-etcd bootstrap-control-plane bootstrap-workers configure-kubectl setup-networking smoke-test
 
 # Variables
 PROJECT_NAME ?= kubernetes-hard-way
@@ -34,7 +34,6 @@ help:
 	@/bin/echo -e "  $(YELLOW)make bootstrap-workers$(NC)     - 👷 Bootstrap Kubernetes worker nodes"
 	@/bin/echo -e "  $(YELLOW)make configure-kubectl$(NC)     - 🎛️  Configure kubectl for remote access"
 	@/bin/echo -e "  $(YELLOW)make setup-networking$(NC)      - 🌐 Setup pod network routes"
-	@/bin/echo -e "  $(YELLOW)make test-deployment$(NC)       - 🧪 Test complete deployment end-to-end"
 	@/bin/echo -e "  $(YELLOW)make cleanup-jumpbox$(NC)       - 🗑️  Clean up jumpbox files and binaries"
 	@/bin/echo -e "  $(RED)make full-cleanup$(NC)          - 💥 Full cleanup (destroy + clean + cleanup-jumpbox)"
 	@/bin/echo ""
@@ -183,7 +182,6 @@ deploy:
 	@/bin/echo ""
 	@/bin/echo "Useful commands:"
 	@/bin/echo -e "  $(YELLOW)make status$(NC)                  - 📊 Show infrastructure status"
-	@/bin/echo -e "  $(YELLOW)make test-deployment$(NC)         - 🧪 Test complete setup end-to-end"
 	@/bin/echo -e "  $(YELLOW)kubectl get nodes$(NC)            - 🔍 Check cluster nodes"
 	@/bin/echo -e "  $(YELLOW)kubectl get componentstatuses$(NC) - 🔍 Check cluster health"
 	@/bin/echo ""
@@ -362,15 +360,6 @@ verify-compute:
 	@/bin/echo ""
 	@chmod +x scripts/verify-compute-setup.sh
 	@./scripts/verify-compute-setup.sh
-
-# Test complete deployment
-test-deployment:
-	@/bin/echo ""
-	@/bin/echo -e "$(BLUE)🧪 Testing Full Deployment$(NC)"
-	@/bin/echo "========================="
-	@/bin/echo ""
-	@chmod +x scripts/test-full-deployment.sh
-	@./scripts/test-full-deployment.sh
 
 # Generate PKI certificates
 generate-certs:
