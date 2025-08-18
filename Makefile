@@ -180,7 +180,6 @@ deploy:
 	@/bin/echo -e "  ✅ Lab 08: Bootstrapping the Kubernetes Worker Nodes"
 	@/bin/echo -e "  ✅ Lab 09: Configuring kubectl for Remote Access"
 	@/bin/echo -e "  ✅ Lab 10: Provisioning Pod Network Routes"
-	@/bin/echo -e "  ⏳ Lab 11: Deploying the DNS Cluster Add-on"
 	@/bin/echo ""
 	@/bin/echo "Useful commands:"
 	@/bin/echo -e "  $(YELLOW)make status$(NC)                  - 📊 Show infrastructure status"
@@ -222,24 +221,28 @@ status:
 		/bin/echo -e "$(RED)❌ No infrastructure found. Run 'make deploy' first.$(NC)"; \
 		exit 1; \
 	fi
-	@terraform output -json | jq -r '\
-		"$(GREEN)Controller Node:$(NC)",\
-		"  🌐 Public IP:  " + .controller_public_ip.value,\
-		"  🏠 Private IP: " + .controller_private_ip.value,\
-		"",\
-		"$(GREEN)Worker Nodes:$(NC)",\
-		"  📦 node-0:",\
-		"    🌐 Public IP:  " + .worker_nodes.value."node-0".public_ip,\
-		"    🏠 Private IP: " + .worker_nodes.value."node-0".private_ip,\
-		"  📦 node-1:",\
-		"    🌐 Public IP:  " + .worker_nodes.value."node-1".public_ip,\
-		"    🏠 Private IP: " + .worker_nodes.value."node-1".private_ip,\
-		"",\
-		"$(GREEN)SSH Commands:$(NC)",\
-		"  🖥️  Controller: ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .controller_public_ip.value,\
-		"  🖥️  Worker 0:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .worker_nodes.value."node-0".public_ip,\
-		"  🖥️  Worker 1:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@" + .worker_nodes.value."node-1".public_ip\
-	'
+	@CONTROLLER_PUBLIC_IP=$$(terraform output -raw controller_public_ip); \
+	CONTROLLER_PRIVATE_IP=$$(terraform output -raw controller_private_ip); \
+	WORKER_0_PUBLIC_IP=$$(terraform output -json worker_nodes | jq -r '."node-0".public_ip'); \
+	WORKER_0_PRIVATE_IP=$$(terraform output -json worker_nodes | jq -r '."node-0".private_ip'); \
+	WORKER_1_PUBLIC_IP=$$(terraform output -json worker_nodes | jq -r '."node-1".public_ip'); \
+	WORKER_1_PRIVATE_IP=$$(terraform output -json worker_nodes | jq -r '."node-1".private_ip'); \
+	/bin/echo -e "$(GREEN)Controller Node:$(NC)"; \
+	/bin/echo "  🌐 Public IP:  $$CONTROLLER_PUBLIC_IP"; \
+	/bin/echo "  🏠 Private IP: $$CONTROLLER_PRIVATE_IP"; \
+	/bin/echo ""; \
+	/bin/echo -e "$(GREEN)Worker Nodes:$(NC)"; \
+	/bin/echo "  📦 node-0:"; \
+	/bin/echo "    🌐 Public IP:  $$WORKER_0_PUBLIC_IP"; \
+	/bin/echo "    🏠 Private IP: $$WORKER_0_PRIVATE_IP"; \
+	/bin/echo "  📦 node-1:"; \
+	/bin/echo "    🌐 Public IP:  $$WORKER_1_PUBLIC_IP"; \
+	/bin/echo "    🏠 Private IP: $$WORKER_1_PRIVATE_IP"; \
+	/bin/echo ""; \
+	/bin/echo -e "$(GREEN)SSH Commands:$(NC)"; \
+	/bin/echo "  🖥️  Controller: ssh -i ~/.ssh/$(KEY_NAME).pem admin@$$CONTROLLER_PUBLIC_IP"; \
+	/bin/echo "  🖥️  Worker 0:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@$$WORKER_0_PUBLIC_IP"; \
+	/bin/echo "  🖥️  Worker 1:   ssh -i ~/.ssh/$(KEY_NAME).pem admin@$$WORKER_1_PUBLIC_IP"
 	@/bin/echo ""
 
 # Setup jumpbox environment
